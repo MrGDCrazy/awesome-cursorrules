@@ -21,11 +21,32 @@ const failures = [];
 const selfRepositoryBlobPrefix = githubBlobPrefix();
 const selfRepositoryRawPrefix = githubRawPrefix();
 const requiredRuleFrontmatterFields = ["description", "globs", "alwaysApply"];
+const requiredAgentFrontmatterFields = ["name", "description", "model", "readonly", "is_background"];
+const requiredAgentSections = [
+  "Purpose",
+  "Responsibilities",
+  "Non-Responsibilities",
+  "Inputs",
+  "Process",
+  "Output",
+  "Quality Gates",
+  "Escalation Rules",
+  "Collaboration Rules",
+];
 const ruleFrontmatterExample = [
   "---",
   "description: One-line summary of what this rule helps Cursor do",
   "globs: **/*.ts, **/*.tsx",
   "alwaysApply: false",
+  "---",
+].join("\n");
+const agentFrontmatterExample = [
+  "---",
+  "name: specialist-name",
+  "description: Use proactively when this repository-specific specialist should own the task.",
+  "model: inherit",
+  "readonly: true",
+  "is_background: false",
   "---",
 ].join("\n");
 
@@ -41,6 +62,7 @@ if (concerns.has("issues")) {
 
 if (concerns.has("rules")) {
   checkRuleFiles(filesToCheck);
+  checkCursorAgentFiles(filesToCheck);
 }
 
 if (concerns.has("security")) {
@@ -295,6 +317,45 @@ function checkRuleFiles(candidateFiles) {
   }
 }
 
+function checkCursorAgentFiles(candidateFiles) {
+  for (const file of candidateFiles) {
+    const normalizedFile = toPosixPath(file);
+    if (!isCursorAgentFile(normalizedFile)) continue;
+
+    const fullPath = join(root, normalizedFile);
+    if (!existsSync(fullPath) || !statSync(fullPath).isFile()) continue;
+
+    const content = readFileSync(fullPath, "utf8");
+    const trimmed = content.trim();
+
+    if (trimmed.length === 0) {
+      addFailure({
+        ruleId: "agent-content/no-empty-file",
+        title: "Cursor agent files must contain content",
+        file: normalizedFile,
+        problem: `${normalizedFile} is empty.`,
+        why: "Empty Cursor agent files create confusing delegation targets without reviewable instructions.",
+        fix: "Add complete agent frontmatter and a system prompt, or remove the empty file.",
+      });
+      continue;
+    }
+
+    if (looksLikeAiErrorMessage(trimmed)) {
+      addFailure({
+        ruleId: "agent-content/no-ai-placeholder",
+        title: "Cursor agent files must not be AI error placeholders",
+        file: normalizedFile,
+        problem: `${normalizedFile} looks like an AI error message, not an agent prompt.`,
+        why: "AI apology or placeholder text usually means generation failed and the agent was committed without reviewable instructions.",
+        fix: "Replace the placeholder with a complete native Cursor subagent definition, or remove the file until the agent is ready.",
+      });
+    }
+
+    checkCursorAgentFrontmatter(normalizedFile, trimmed);
+    checkCursorAgentSections(normalizedFile, trimmed);
+  }
+}
+
 function checkPromptSafety(candidateFiles) {
   for (const file of candidateFiles) {
     const normalizedFile = toPosixPath(file);
@@ -401,9 +462,14 @@ function isCanonicalMdcRule(file) {
   return file.startsWith("rules/") && file.endsWith(".mdc");
 }
 
+function isCursorAgentFile(file) {
+  return /^\.cursor\/agents\/[^/]+\.md$/i.test(file);
+}
+
 function isPromptSafetyFile(file) {
   if (isCanonicalMdcRule(file)) return true;
   if (/^\.cursor\/rules\/.+\.mdc$/i.test(file)) return true;
+  if (isCursorAgentFile(file)) return true;
   return isAgentInstructionFile(file);
 }
 
@@ -845,6 +911,111 @@ function checkRuleFrontmatter(file, content) {
   }
 }
 
+function checkCursorAgentFrontmatter(file, content) {
+  const frontmatter = parseFrontmatter(content);
+  if (!frontmatter) {
+    addFailure({
+      ruleId: "agent-frontmatter/required",
+      title: "Cursor agent files must start with YAML frontmatter",
+      file,
+      problem: `${file} is missing YAML frontmatter. .cursor/agents/*.md files must begin with YAML frontmatter that includes \`name\`, \`description\`, \`model\`, \`readonly\`, and \`is_background\`.`,
+      why: "Native Cursor subagents need predictable metadata so Cursor can select the right specialist automatically.",
+      fix: `Copy this example and adjust the values:\n${agentFrontmatterExample}`,
+    });
+    return;
+  }
+
+  const fields = {};
+  for (const field of requiredAgentFrontmatterFields) {
+    const value = readFrontmatterField(frontmatter, field);
+    if (value === null) {
+      addFailure({
+        ruleId: "agent-frontmatter/field-required",
+        title: "Cursor agent frontmatter must include all required fields",
+        file,
+        problem: `${file} is missing required YAML frontmatter field \`${field}\`. Required fields for .cursor/agents/*.md: \`name\`, \`description\`, \`model\`, \`readonly\`, \`is_background\`.`,
+        why: "Missing metadata makes automatic delegation, model selection, edit permissions, and background behavior ambiguous.",
+        fix: "Add `name`, `description`, `model`, `readonly`, and `is_background` to the agent frontmatter.",
+      });
+      continue;
+    }
+    fields[field] = stripYamlQuotes(value).trim();
+  }
+
+  if (fields.name !== undefined && !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(fields.name)) {
+    addFailure({
+      ruleId: "agent-frontmatter/name-format",
+      title: "Cursor agent names must be kebab-case",
+      file,
+      problem: `${file} frontmatter field \`name\` must be lowercase kebab-case.`,
+      why: "Stable kebab-case agent names are easy to reference and avoid case-sensitive path confusion.",
+      fix: "Use a lowercase kebab-case name such as `rule-catalog-curator`.",
+    });
+  }
+
+  if (fields.description !== undefined) {
+    if (fields.description.length === 0) {
+      addFailure({
+        ruleId: "agent-frontmatter/description-required",
+        title: "Cursor agent descriptions must be non-empty",
+        file,
+        problem: `${file} frontmatter field \`description\` is empty.`,
+        why: "The description is Cursor's main signal for automatic delegation.",
+        fix: "Add a repository-specific description that says when to use and when not to use the specialist.",
+      });
+    } else if (!/(Use proactively when|Always use|Delegate whenever|Never delegate)/.test(fields.description)) {
+      addFailure({
+        ruleId: "agent-frontmatter/delegation-description",
+        title: "Cursor agent descriptions must include delegation triggers",
+        file,
+        problem: `${file} frontmatter field \`description\` does not include explicit automatic delegation phrasing.`,
+        why: "Explicit trigger phrases help Cursor select the correct specialist without manual prompting.",
+        fix: "Include repository-specific phrasing such as `Use proactively when`, `Always use`, `Delegate whenever`, or `Never delegate`.",
+      });
+    }
+  }
+
+  if (fields.model !== undefined && fields.model.length === 0) {
+    addFailure({
+      ruleId: "agent-frontmatter/model-required",
+      title: "Cursor agent model must be non-empty",
+      file,
+      problem: `${file} frontmatter field \`model\` is empty.`,
+      why: "The model field must explicitly inherit or pin a model so execution behavior is predictable.",
+      fix: "Use `model: inherit` unless the agent has a justified model pin.",
+    });
+  }
+
+  for (const field of ["readonly", "is_background"]) {
+    if (fields[field] !== undefined && !["true", "false"].includes(fields[field])) {
+      addFailure({
+        ruleId: `agent-frontmatter/${field.replace("_", "-")}-boolean`,
+        title: "Cursor agent boolean fields must be boolean text",
+        file,
+        problem: `${file} frontmatter field \`${field}\` must be exactly \`true\` or \`false\`.`,
+        why: "Agent edit permissions and background execution must be explicit and deterministic.",
+        fix: `Use \`${field}: true\` or \`${field}: false\`.`,
+      });
+    }
+  }
+}
+
+function checkCursorAgentSections(file, content) {
+  for (const section of requiredAgentSections) {
+    const pattern = new RegExp(`^# ${escapeRegExp(section)}\\s*$`, "m");
+    if (!pattern.test(content)) {
+      addFailure({
+        ruleId: "agent-content/required-section",
+        title: "Cursor agent prompts must include required sections",
+        file,
+        problem: `${file} is missing the \`# ${section}\` section.`,
+        why: "Consistent sections make agent responsibility, boundaries, process, quality gates, escalation, and collaboration reviewable.",
+        fix: `Add a \`# ${section}\` section with repository-specific guidance.`,
+      });
+    }
+  }
+}
+
 function parseFrontmatter(content) {
   if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) {
     return null;
@@ -886,6 +1057,10 @@ function stripYamlQuotes(value) {
     return trimmed.slice(1, -1);
   }
   return trimmed;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function toPosixPath(file) {
