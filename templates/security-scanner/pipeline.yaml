@@ -1,0 +1,73 @@
+version: 1
+pipeline:
+  clone:
+    depth: 1
+    ref:
+      name: <+inputs.branch>
+      type: branch
+    repo: <+inputs.repo>
+    connector: "<+inputs.gitConnector != null ? inputs.gitConnector.id : ''>"
+
+  stages:
+    - name: security-scan
+      steps:
+        - name: vulnerability_scanner
+          run:
+            container:
+              image: myregistry/security-scanner:latest
+            with:
+              scan_type: "full"
+              severity_threshold: "medium"
+              output_file: /harness/security/findings.json
+              working_directory: /harness
+            env:
+              ANTHROPIC_API_KEY: <+inputs.llmConnector.token>
+
+        - name: generate_report
+          run:
+            container:
+              image: myregistry/report-generator:latest
+            with:
+              findings_file: /harness/security/findings.json
+              report_file: /harness/security/SECURITY_REPORT.md
+              format: markdown
+
+        - name: post_findings
+          run:
+            container:
+              image: myregistry/pr-comment:latest
+            with:
+              report_file: /harness/security/SECURITY_REPORT.md
+              repo: <+inputs.repo>
+              pr_number: <+inputs.pullReq>
+            env:
+              TOKEN: <+inputs.harnessKey>
+          if: <+inputs.pullReq> != ""
+
+      platform:
+        os: linux
+        arch: arm64
+
+  inputs:
+    llmConnector:
+      type: connector
+      description: LLM provider connector for AI security analysis
+    gitConnector:
+      type: connector
+      description: Git repository connector
+    harnessKey:
+      type: secret
+      default: account.harness_api_key
+      description: API key used to post PR findings comments
+    repo:
+      type: string
+      required: true
+      description: Repository identifier (org/repo)
+    branch:
+      type: string
+      default: main
+      description: Branch to scan
+    pullReq:
+      type: string
+      default: ""
+      description: Pull request number (optional, for PR comments)
