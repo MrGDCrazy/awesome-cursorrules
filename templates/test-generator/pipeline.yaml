@@ -57,7 +57,9 @@ pipeline:
                 NETRC_USERNAME="${DRONE_NETRC_USERNAME}"
                 NETRC_PASSWORD="${DRONE_NETRC_PASSWORD}"
               else
-                NETRC_USERNAME=$(echo "$DRONE_REPO_LINK" | sed -E 's|https?://[^/]+/([^/]+)/.*|\1|')
+                # Prefer CI-provided netrc username; fall back to x-access-token for PAT HTTPS auth
+                # (GitHub/GitLab-style tokens expect a login or x-access-token, not the org/owner slug).
+                NETRC_USERNAME="${DRONE_NETRC_USERNAME:-x-access-token}"
                 TOKEN="${SCM_TOKEN}"
                 NETRC_PASSWORD="${SCM_TOKEN}"
               fi
