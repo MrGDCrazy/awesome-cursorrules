@@ -1,0 +1,68 @@
+version: 1
+pipeline:
+  clone:
+    depth: 1000
+    ref:
+      type: pull-request
+      number: <+inputs.pullReq>
+    repo: <+inputs.repo>
+    connector: "<+inputs.gitConnector != null ? inputs.gitConnector.id : ''>"
+
+  stages:
+    - name: review
+      steps:
+        - name: review_prompt_generation
+          run:
+            container:
+              image: myregistry/ai-review:latest
+            with:
+              output_file: /harness/review/task.txt
+              review_output_file: /harness/review/review.json
+              working_directory: /harness
+
+        - name: coding_agent
+          run:
+            container:
+              image: myregistry/coding-agent:latest
+            with:
+              detailed_logging: "true"
+              max_iterations: "50"
+              task_file_path: /harness/review/task.txt
+              working_directory: /harness
+            env:
+              ANTHROPIC_API_KEY: <+inputs.llmConnector.token>
+
+        - name: post_comments
+          run:
+            container:
+              image: myregistry/comment-plugin:latest
+            with:
+              comments_file: /harness/review/review.json
+              repo: <+inputs.repo>
+              pr_number: <+inputs.pullReq>
+            env:
+              TOKEN: <+inputs.harnessKey>
+
+      platform:
+        os: linux
+        arch: arm64
+
+  inputs:
+    llmConnector:
+      type: connector
+      description: LLM provider connector for AI review
+    gitConnector:
+      type: connector
+      description: Git repository connector
+    harnessKey:
+      type: secret
+      default: account.harness_api_key
+      description: API key used to post PR review comments
+    repo:
+      type: string
+      required: true
+      description: Repository identifier (org/repo)
+    pullReq:
+      type: string
+      required: true
+      description: Pull request number to review
