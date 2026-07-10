@@ -224,6 +224,84 @@ test("passes universal changed canonical rules files with empty globs and always
   }
 });
 
+test("passes Cursor agent files with required native subagent metadata and sections", () => {
+  const root = makeFixture();
+  try {
+    write(root, "README.md", "\n");
+    write(
+      root,
+      ".cursor/agents/rule-catalog-curator.md",
+      [
+        "---",
+        "name: rule-catalog-curator",
+        "description: Use proactively when reviewing rules/*.mdc catalog changes. Always use for README rule listings. Never delegate CI changes here.",
+        "model: inherit",
+        "readonly: false",
+        "is_background: false",
+        "---",
+        "",
+        "# Purpose",
+        "Own catalog content.",
+        "# Responsibilities",
+        "Review rule files.",
+        "# Non-Responsibilities",
+        "Do not own CI.",
+        "# Inputs",
+        "Changed catalog files.",
+        "# Process",
+        "Inspect, edit, validate.",
+        "# Output",
+        "Catalog updates.",
+        "# Quality Gates",
+        "Validation passes.",
+        "# Escalation Rules",
+        "Stop on policy conflicts.",
+        "# Collaboration Rules",
+        "Ask test runner for validation.",
+      ].join("\n"),
+    );
+    write(root, ".changed-files", ".cursor/agents/rule-catalog-curator.md\n");
+    const result = run(root, ["--changed-files", ".changed-files"]);
+    assert.equal(result.status, 0, result.stderr + result.stdout);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails Cursor agent files with missing metadata and required prompt sections", () => {
+  const root = makeFixture();
+  try {
+    write(root, "README.md", "\n");
+    write(
+      root,
+      ".cursor/agents/bad-agent.md",
+      [
+        "---",
+        "name: Bad Agent",
+        "description: Handles things.",
+        "readonly: maybe",
+        "is_background: later",
+        "---",
+        "",
+        "# Purpose",
+        "Too vague.",
+      ].join("\n"),
+    );
+    write(root, ".changed-files", ".cursor/agents/bad-agent.md\n");
+    const result = run(root, ["--changed-files", ".changed-files"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /missing required YAML frontmatter field `model`/);
+    assert.match(result.stderr, /frontmatter field `name` must be lowercase kebab-case/);
+    assert.match(result.stderr, /does not include explicit automatic delegation phrasing/);
+    assert.match(result.stderr, /frontmatter field `readonly` must be exactly `true` or `false`/);
+    assert.match(result.stderr, /frontmatter field `is_background` must be exactly `true` or `false`/);
+    assert.match(result.stderr, /missing the `# Responsibilities` section/);
+    assert.match(result.stderr, /missing the `# Collaboration Rules` section/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("fails changed canonical rule files that are empty or AI apology placeholders", () => {
   const root = makeFixture();
   try {

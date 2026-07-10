@@ -22,7 +22,7 @@ This repository is a curated awesome list for Cursor Project Rules. The primary 
 ### Testing strategy
 
 - `pnpm test` runs Node's built-in test runner over `scripts/*.test.mjs`.
-- Local CI-equivalent checks are `pnpm check:awesome-list`, `pnpm check:readme-hygiene`, `pnpm check:rule-hygiene`, `pnpm check:issue-template-policy`, and `pnpm check:repo-security`.
+- Local CI-equivalent checks are `pnpm check:awesome-list`, `pnpm check:repo-hygiene`, `pnpm check:readme-hygiene`, `pnpm check:rule-hygiene`, `pnpm check:issue-template-policy`, and `pnpm check:repo-security`.
 - `pnpm check:awesome-list:upstream` uses network access to run `awesome-lint@2.3.0`.
 
 ### CI/CD
@@ -174,8 +174,8 @@ Final review checks ownership, duplication, validation evidence, and release rea
 ## Background Execution Opportunities
 
 - `repository-test-runner` is suitable for background execution because full validation can take longer than review tasks.
-- `rule-catalog-curator` can run background catalog drift scans across all rule files.
-- Other agents should stay foreground because they make judgment calls that shape implementation.
+- Future read-only catalog drift scans could run in the background if split from the writable `rule-catalog-curator`.
+- Writable agents should stay foreground because they make edits or judgment calls that shape implementation.
 
 ## Recommended Invocation Patterns
 

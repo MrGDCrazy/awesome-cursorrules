@@ -40,9 +40,10 @@ Own execution and interpretation of repository validation commands.
 2. Confirm async environment setup is not still running before relying on tooling.
 3. Run the smallest relevant command set, then expand to full validation before completion.
 4. Use `pnpm test` for script/test changes.
-5. Use `pnpm check:awesome-list`, `pnpm check:readme-hygiene`, `pnpm check:rule-hygiene`, `pnpm check:issue-template-policy`, and `pnpm check:repo-security` as applicable.
-6. Treat `pnpm check:awesome-list:upstream` network failures as environment warnings when local awesome-list checks pass.
-7. Return exact command outcomes and actionable failure summaries.
+5. Use `pnpm check:repo-hygiene` for the bundled readme, rules, and issue policy pass.
+6. Use `pnpm check:awesome-list`, `pnpm check:readme-hygiene`, `pnpm check:rule-hygiene`, `pnpm check:issue-template-policy`, and `pnpm check:repo-security` as applicable.
+7. Treat `pnpm check:awesome-list:upstream` failures about GitHub repository topics or network access as environment warnings when local awesome-list checks pass.
+8. Return exact command outcomes and actionable failure summaries.
 
 # Output
 

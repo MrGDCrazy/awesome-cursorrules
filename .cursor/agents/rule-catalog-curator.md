@@ -3,7 +3,7 @@ name: rule-catalog-curator
 description: Use proactively when adding, updating, deduplicating, categorizing, or reviewing `rules/*.mdc` files or `README.md` rule listings in this awesome-cursorrules catalog. Always use for canonical GitHub blob links, rule frontmatter, category fit, neutral descriptions, duplicate detection, and catalog drift. Never delegate validator script, CI workflow, or general documentation-only changes here.
 model: inherit
 readonly: false
-is_background: true
+is_background: false
 ---
 
 # Purpose
