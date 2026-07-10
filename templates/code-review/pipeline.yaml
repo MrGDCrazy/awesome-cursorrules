@@ -6,7 +6,7 @@ pipeline:
       type: pull-request
       number: <+inputs.pullReq>
     repo: <+inputs.repo>
-    connector: "<+inputs.gitConnector != null ? inputs.gitConnector.id : ''>"
+    connector: <+inputs.gitConnector>
 
   stages:
     - name: review
@@ -14,16 +14,18 @@ pipeline:
         - name: review_prompt_generation
           run:
             container:
-              image: myregistry/ai-review:latest
+              image: <+inputs.reviewImage>
             with:
               output_file: /harness/review/task.txt
               review_output_file: /harness/review/review.json
               working_directory: /harness
+              repo: <+inputs.repo>
+              pr_number: <+inputs.pullReq>
 
         - name: coding_agent
           run:
             container:
-              image: myregistry/coding-agent:latest
+              image: <+inputs.codingAgentImage>
             with:
               detailed_logging: "true"
               max_iterations: "50"
@@ -35,7 +37,7 @@ pipeline:
         - name: post_comments
           run:
             container:
-              image: myregistry/comment-plugin:latest
+              image: <+inputs.commentImage>
             with:
               comments_file: /harness/review/review.json
               repo: <+inputs.repo>
@@ -45,14 +47,16 @@ pipeline:
 
       platform:
         os: linux
-        arch: arm64
+        arch: <+inputs.arch>
 
   inputs:
     llmConnector:
       type: connector
-      description: LLM provider connector for AI review
+      required: true
+      description: Anthropic-compatible LLM connector (token mapped to ANTHROPIC_API_KEY)
     gitConnector:
       type: connector
+      required: true
       description: Git repository connector
     harnessKey:
       type: secret
@@ -66,3 +70,19 @@ pipeline:
       type: string
       required: true
       description: Pull request number to review
+    arch:
+      type: string
+      default: amd64
+      description: Pipeline platform architecture (amd64 or arm64)
+    reviewImage:
+      type: string
+      default: myregistry/ai-review:1.0.0
+      description: Container image for review prompt generation (replace with your registry)
+    codingAgentImage:
+      type: string
+      default: myregistry/coding-agent:1.0.0
+      description: Container image for the coding agent (replace with your registry)
+    commentImage:
+      type: string
+      default: myregistry/comment-plugin:1.0.0
+      description: Container image for posting PR comments (replace with your registry)

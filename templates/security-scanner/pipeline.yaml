@@ -6,7 +6,7 @@ pipeline:
       name: <+inputs.branch>
       type: branch
     repo: <+inputs.repo>
-    connector: "<+inputs.gitConnector != null ? inputs.gitConnector.id : ''>"
+    connector: <+inputs.gitConnector>
 
   stages:
     - name: security-scan
@@ -14,19 +14,21 @@ pipeline:
         - name: vulnerability_scanner
           run:
             container:
-              image: myregistry/security-scanner:latest
+              image: <+inputs.scannerImage>
             with:
               scan_type: "full"
               severity_threshold: "medium"
               output_file: /harness/security/findings.json
               working_directory: /harness
+              repo: <+inputs.repo>
+              branch: <+inputs.branch>
             env:
               ANTHROPIC_API_KEY: <+inputs.llmConnector.token>
 
         - name: generate_report
           run:
             container:
-              image: myregistry/report-generator:latest
+              image: <+inputs.reportImage>
             with:
               findings_file: /harness/security/findings.json
               report_file: /harness/security/SECURITY_REPORT.md
@@ -35,7 +37,7 @@ pipeline:
         - name: post_findings
           run:
             container:
-              image: myregistry/pr-comment:latest
+              image: <+inputs.commentImage>
             with:
               report_file: /harness/security/SECURITY_REPORT.md
               repo: <+inputs.repo>
@@ -46,14 +48,16 @@ pipeline:
 
       platform:
         os: linux
-        arch: arm64
+        arch: <+inputs.arch>
 
   inputs:
     llmConnector:
       type: connector
-      description: LLM provider connector for AI security analysis
+      required: true
+      description: Anthropic-compatible LLM connector (token mapped to ANTHROPIC_API_KEY)
     gitConnector:
       type: connector
+      required: true
       description: Git repository connector
     harnessKey:
       type: secret
@@ -71,3 +75,19 @@ pipeline:
       type: string
       default: ""
       description: Pull request number (optional, for PR comments)
+    arch:
+      type: string
+      default: amd64
+      description: Pipeline platform architecture (amd64 or arm64)
+    scannerImage:
+      type: string
+      default: myregistry/security-scanner:1.0.0
+      description: Container image for vulnerability scanning (replace with your registry)
+    reportImage:
+      type: string
+      default: myregistry/report-generator:1.0.0
+      description: Container image for report generation (replace with your registry)
+    commentImage:
+      type: string
+      default: myregistry/pr-comment:1.0.0
+      description: Container image for posting PR comments (replace with your registry)

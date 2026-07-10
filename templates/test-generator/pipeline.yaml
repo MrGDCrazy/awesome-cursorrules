@@ -6,7 +6,7 @@ pipeline:
       name: <+inputs.branch>
       type: branch
     repo: <+inputs.repo>
-    connector: "<+inputs.gitConnector != null ? inputs.gitConnector.id : ''>"
+    connector: <+inputs.gitConnector>
 
   stages:
     - name: test-generator
@@ -14,7 +14,7 @@ pipeline:
         - name: analyze_and_generate_tests
           run:
             container:
-              image: myregistry/coding-agent:latest
+              image: <+inputs.codingAgentImage>
             with:
               detailed_logging: "true"
               max_iterations: "50"
@@ -34,7 +34,13 @@ pipeline:
             shell: bash
             script: |-
               git add -A
-              git diff --cached
+              if git diff --cached --quiet; then
+                echo "HAS_CHANGES=false" >> "$DRONE_OUTPUT"
+                echo "No test changes were generated; skipping PR creation."
+              else
+                echo "HAS_CHANGES=true" >> "$DRONE_OUTPUT"
+                git diff --cached
+              fi
 
         - name: detect_scm_provider
           run:
@@ -66,16 +72,17 @@ pipeline:
             env:
               HARNESS_API_KEY: <+inputs.harnessKey>
               SCM_TOKEN: <+inputs.gitConnector.token>
+          if: <+pipeline.stages.test-generator.steps.show_changes.output.outputVariables.HAS_CHANGES> == "true"
 
         - name: create_pr
           run:
             container:
-              image: myregistry/create-pr-plugin:latest
+              image: <+inputs.createPrImage>
             env:
               PLUGIN_SCM_PROVIDER: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.SCM_PROVIDER>
               PLUGIN_TOKEN: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.TOKEN>
-              PLUGIN_REPO: ${{inputs.repo}}
-              PLUGIN_SOURCE_BRANCH: ${{inputs.branch}}
+              PLUGIN_REPO: <+inputs.repo>
+              PLUGIN_SOURCE_BRANCH: <+inputs.branch>
               PLUGIN_NETRC_MACHINE: <+env.DRONE_NETRC_MACHINE>
               PLUGIN_NETRC_USERNAME: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.NETRC_USERNAME>
               PLUGIN_NETRC_PASSWORD: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.NETRC_PASSWORD>
@@ -89,17 +96,20 @@ pipeline:
               PLUGIN_HARNESS_ORG_ID: <+env.HARNESS_ORG_ID>
               PLUGIN_HARNESS_PROJECT_ID: <+env.HARNESS_PROJECT_ID>
               PLUGIN_HARNESS_BASE_URL: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.BASE_URL>
+          if: <+pipeline.stages.test-generator.steps.show_changes.output.outputVariables.HAS_CHANGES> == "true"
 
       platform:
         os: linux
-        arch: arm64
+        arch: <+inputs.arch>
 
   inputs:
     llmConnector:
       type: connector
-      description: LLM connector for AI test generation
+      required: true
+      description: Anthropic-compatible LLM connector (token mapped to ANTHROPIC_API_KEY)
     gitConnector:
       type: connector
+      required: true
       description: Git connector for repository access
     harnessKey:
       type: secret
@@ -113,3 +123,15 @@ pipeline:
       type: string
       default: main
       description: Branch to analyze for missing tests
+    arch:
+      type: string
+      default: amd64
+      description: Pipeline platform architecture (amd64 or arm64)
+    codingAgentImage:
+      type: string
+      default: myregistry/coding-agent:1.0.0
+      description: Container image for the coding agent (replace with your registry)
+    createPrImage:
+      type: string
+      default: myregistry/create-pr-plugin:1.0.0
+      description: Container image for PR creation (replace with your registry)
