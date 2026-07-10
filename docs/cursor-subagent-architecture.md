@@ -117,14 +117,15 @@ final-quality-reviewer
 | Repository architecture and agent boundaries | `repository-architecture-steward` | None |
 | README catalog taxonomy and canonical rule links | `rule-catalog-curator` | None |
 | `rules/*.mdc` contribution quality | `rule-catalog-curator` | `prompt-security-auditor` for security-only concerns |
-| Prompt safety and unsafe instruction patterns | `prompt-security-auditor` | None |
+| Prompt safety, unsafe instruction patterns, and repository-local prompt contracts | `prompt-security-auditor` | None |
 | Node validators and tests | `validator-ci-engineer` | None |
 | GitHub Actions and PR policy checks | `validator-ci-engineer` | `prompt-security-auditor` for workflow security |
 | Repository documentation outside catalog entries | `documentation-maintainer` | None |
-| Test and validation command execution | `repository-test-runner` | None |
-| Final readiness review | `final-quality-reviewer` | None |
+| Test and validation command execution, including unverified check gaps | `repository-test-runner` | None |
+| Final readiness review, including scope drift, evidence gaps, and test gaps | `final-quality-reviewer` | None |
 | Browser automation | No owner; not applicable to this repo | None |
 | Database, API, infrastructure, deployment services | No owner; not applicable to this repo | None |
+| Runtime LLM provider integrations, model routing, app auth, and tracing | No owner; not applicable to this repo | None |
 
 ## Delegation Matrix
 
@@ -133,6 +134,7 @@ final-quality-reviewer
 | New or changed rule file | `rule-catalog-curator` | `validator-ci-engineer` unless validator behavior changes |
 | README category, link, or description cleanup | `rule-catalog-curator` | `documentation-maintainer` unless non-catalog docs change |
 | Security warning in rule or workflow content | `prompt-security-auditor` | `rule-catalog-curator` for final security judgment |
+| Prompt contract ambiguity in rules, agents, validators, or issue templates | `prompt-security-auditor` | Runtime LLM integration agents |
 | Validator script, test, CI, or author gate change | `validator-ci-engineer` | `rule-catalog-curator` |
 | AGENTS, contributing, issue templates, PR template text | `documentation-maintainer` | `rule-catalog-curator` unless catalog taxonomy changes |
 | Running repo checks or interpreting failures | `repository-test-runner` | Content owners for command execution |
@@ -192,6 +194,14 @@ Final review checks ownership, duplication, validation evidence, and release rea
 - Avoid generic implementation, backend, frontend, database, browser, infrastructure, and API agents.
 - Route by changed path first, then by failure type.
 - Prefer read-only specialists for review, testing, and security judgment.
+
+## Candidate Agent Handling
+
+Uploaded or proposed specialist prompts should be added only when they own a repository surface that is not already covered.
+
+- Absorb general verification guidance into `repository-test-runner` and `final-quality-reviewer` rather than adding a separate repo verifier. Test execution and final readiness already have dedicated owners.
+- Absorb repository-local prompt contract auditing into `prompt-security-auditor` when it concerns `rules/*.mdc`, `.cursor/agents/*.md`, validator messages, issue templates, workflow guidance, schemas, parsers, or fixtures in this repository.
+- Reject runtime LLM integration specialists unless the repository adds real provider configuration, model routing, app auth, tool handlers, tracing, or production LLM calls.
 
 ## Future Expansion Opportunities
 

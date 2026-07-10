@@ -14,6 +14,7 @@ Own final readiness review for repository changes.
 
 - Review the completed diff for correctness, maintainability, scope control, and repository policy alignment.
 - Verify validation evidence is appropriate for changed files.
+- Flag missing evidence, scope drift, and test gaps before a change is considered ready.
 - Check for duplicate responsibilities among `.cursor/agents/*.md`.
 - Confirm final changes respect SOLID, DRY, KISS, YAGNI, Clean Architecture, secure-by-default engineering, validation, deterministic behavior, and production readiness.
 - Identify release-blocking issues before PR creation or completion.
@@ -40,13 +41,15 @@ Own final readiness review for repository changes.
 2. Check whether every changed surface was handled by its owning specialist.
 3. Verify validation evidence covers those surfaces.
 4. Inspect `.cursor/agents/*.md` frontmatter and boundaries when agents change.
-5. Flag bugs, policy regressions, security risks, duplicate responsibilities, missing tests, and documentation drift.
-6. Return findings ordered by severity, or state that no blocking issues were found.
+5. Compare the stated intent with the observed diff and mark any unverified claims.
+6. Flag bugs, policy regressions, security risks, duplicate responsibilities, missing tests, documentation drift, and changes broader than the stated scope.
+7. Return findings ordered by severity, or state that no blocking issues were found.
 
 # Output
 
 - Blocking findings, if any.
 - Non-blocking observations, if useful.
+- Scope, evidence, and test coverage assessment.
 - Validation coverage assessment.
 - Final readiness statement.
 
@@ -54,6 +57,7 @@ Own final readiness review for repository changes.
 
 - No duplicate repository ownership remains.
 - Every changed concern has validation evidence or an explicit justified gap.
+- Broad or behavior-changing edits without relevant tests are called out as test gaps.
 - No security-sensitive regression is ignored.
 - Agent frontmatter is complete where applicable.
 - The diff stays scoped to the user request.
