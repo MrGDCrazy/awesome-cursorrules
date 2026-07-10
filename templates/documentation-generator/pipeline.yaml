@@ -47,8 +47,9 @@ pipeline:
             script: |-
               SCM_PROVIDER=$(echo "${DRONE_REPO_SCM}" | tr '[:upper:]' '[:lower:]')
               if [ -z "$SCM_PROVIDER" ]; then
-                echo "DRONE_REPO_SCM is unset; cannot determine SCM provider for PR creation."
-                exit 1
+                echo "DRONE_REPO_SCM is unset; skipping PR creation."
+                echo "SCM_READY=false" >> $DRONE_OUTPUT
+                exit 0
               fi
               # Harness Code reports SCM as "Git"/"git"; normalize to harness for auth routing.
               if [ "$SCM_PROVIDER" = "git" ] || [ "$SCM_PROVIDER" = "harness" ]; then

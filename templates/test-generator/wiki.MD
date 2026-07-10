@@ -61,7 +61,7 @@ Confirm git changes exist (`HAS_CHANGES=true`) and that the SCM token has write 
 Ensure the coding agent can identify existing test conventions and that the repository contains source modules worth covering.
 
 ### SCM provider detection failing
-Verify `DRONE_REPO_SCM` is set (empty values fail the detect step and skip PR creation) and that connector tokens have the correct permissions for your provider.
+Verify `DRONE_REPO_SCM` is set. Empty values soft-skip PR creation (`SCM_READY=false`) without failing the stage. Also confirm connector tokens have the correct permissions for your provider.
 
 ### Coding agent fails authentication
 Verify `llmConnector` is configured and that `<+inputs.llmConnector.token>` resolves to a valid Anthropic-compatible API token.
