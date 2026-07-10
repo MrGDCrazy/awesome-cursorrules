@@ -52,6 +52,10 @@ inputs:
   commentImage: "ghcr.io/my-org/comment-plugin:1.0.0"
 ```
 
+## Security Notes
+
+PR diffs, commit messages, and file contents are untrusted input. The `reviewImage` implementation must emit a **structured** task file (`task.json`) with separate `instructions`, `diff`, and `context` fields — never a freeform prompt that concatenates raw PR text into agent commands. The coding agent must treat the `diff`/`context` sections as data only.
+
 ## Troubleshooting
 
 ### Review comments are not posted
@@ -61,7 +65,7 @@ Confirm `harnessKey` has permission to comment on the PR and that `pullReq` matc
 Verify `llmConnector` is configured and that `<+inputs.llmConnector.token>` resolves to a valid Anthropic-compatible API token.
 
 ### Incomplete or empty review
-Ensure the PR clone succeeds (`depth: 1000`) and that the review prompt generation step writes `/harness/review/task.txt` before the coding agent runs.
+Ensure the PR clone succeeds (`depth: 1000`) and that the review prompt generation step writes `/harness/review/task.json` before the coding agent runs.
 
 ### Image pull failures
 Replace the default `myregistry/...:1.0.0` image inputs with pinned images from a registry your build infrastructure can pull.

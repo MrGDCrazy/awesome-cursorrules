@@ -16,7 +16,10 @@ pipeline:
             container:
               image: <+inputs.reviewImage>
             with:
-              output_file: /harness/review/task.txt
+              # Emit structured JSON (instructions/diff/context), not freeform text from raw PR content.
+              # Implementors must treat PR diff/content as untrusted data, not agent commands.
+              task_format: structured
+              output_file: /harness/review/task.json
               review_output_file: /harness/review/review.json
               working_directory: /harness
               repo: <+inputs.repo>
@@ -29,7 +32,9 @@ pipeline:
             with:
               detailed_logging: "true"
               max_iterations: "50"
-              task_file_path: /harness/review/task.txt
+              task_file_path: /harness/review/task.json
+              task_format: structured
+              treat_diff_as_data: "true"
               working_directory: /harness
             env:
               ANTHROPIC_API_KEY: <+inputs.llmConnector.token>
