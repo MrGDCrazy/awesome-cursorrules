@@ -58,7 +58,7 @@ pipeline:
 
               if [ "$SCM_PROVIDER" = "harness" ]; then
                 TOKEN="${HARNESS_API_KEY:-$SCM_TOKEN}"
-                NETRC_USERNAME="${DRONE_NETRC_USERNAME}"
+                NETRC_USERNAME="${DRONE_NETRC_USERNAME:-pat}"
                 NETRC_PASSWORD="${DRONE_NETRC_PASSWORD:-$TOKEN}"
               else
                 # Prefer CI-provided netrc username; fall back to x-access-token for PAT HTTPS auth
@@ -69,6 +69,12 @@ pipeline:
               fi
 
               BASE_URL="${DRONE_SYSTEM_PROTO}://${DRONE_SYSTEM_HOST}"
+
+              if [ -z "$TOKEN" ] || [ -z "$NETRC_USERNAME" ]; then
+                echo "SCM credentials incomplete (token or netrc username missing); skipping PR creation."
+                echo "SCM_READY=false" >> $DRONE_OUTPUT
+                exit 0
+              fi
 
               echo "SCM_PROVIDER=$SCM_PROVIDER" >> $DRONE_OUTPUT
               echo "TOKEN=$TOKEN" >> $HARNESS_OUTPUT_SECRET_FILE
