@@ -44,7 +44,7 @@ pipeline:
               pr_number: <+inputs.pullReq>
             env:
               TOKEN: <+inputs.harnessKey>
-          if: <+inputs.pullReq> != ""
+          if: <+inputs.pullReq != null && inputs.pullReq != "">
 
       platform:
         os: linux

@@ -60,7 +60,7 @@ inputs:
 Confirm the vulnerability scanner wrote `/harness/security/findings.json` and that the report generator can read that path.
 
 ### PR comment step skipped
-The `post_findings` step only runs when `pullReq` is non-empty. Pass a valid PR number to enable commenting.
+The `post_findings` step only runs when `pullReq` is present and non-empty. Pass a valid PR number to enable commenting.
 
 ### Scanner authentication fails
 Verify `llmConnector` is configured and that `<+inputs.llmConnector.token>` resolves to a valid Anthropic-compatible API token.

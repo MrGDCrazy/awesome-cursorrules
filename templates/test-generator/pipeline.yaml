@@ -46,16 +46,16 @@ pipeline:
           run:
             shell: bash
             script: |-
-              SCM_PROVIDER="${DRONE_REPO_SCM}"
-              if [ "$SCM_PROVIDER" = "Git" ]; then
+              SCM_PROVIDER=$(echo "${DRONE_REPO_SCM}" | tr '[:upper:]' '[:lower:]')
+              # Harness Code reports SCM as "Git"/"git"; normalize to harness for auth routing.
+              if [ "$SCM_PROVIDER" = "git" ] || [ "$SCM_PROVIDER" = "harness" ]; then
                 SCM_PROVIDER="harness"
               fi
-              SCM_PROVIDER=$(echo "$SCM_PROVIDER" | tr '[:upper:]' '[:lower:]')
 
               if [ "$SCM_PROVIDER" = "harness" ]; then
                 TOKEN="${HARNESS_API_KEY:-$SCM_TOKEN}"
                 NETRC_USERNAME="${DRONE_NETRC_USERNAME}"
-                NETRC_PASSWORD="${DRONE_NETRC_PASSWORD}"
+                NETRC_PASSWORD="${DRONE_NETRC_PASSWORD:-$TOKEN}"
               else
                 # Prefer CI-provided netrc username; fall back to x-access-token for PAT HTTPS auth
                 # (GitHub/GitLab-style tokens expect a login or x-access-token, not the org/owner slug).
