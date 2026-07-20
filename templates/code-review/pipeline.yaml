@@ -1,0 +1,93 @@
+version: 1
+pipeline:
+  clone:
+    depth: 1000
+    ref:
+      type: pull-request
+      number: <+inputs.pullReq>
+    repo: <+inputs.repo>
+    connector: <+inputs.gitConnector>
+
+  stages:
+    - name: review
+      steps:
+        - name: review_prompt_generation
+          run:
+            container:
+              image: <+inputs.reviewImage>
+            with:
+              # Emit structured JSON (instructions/diff/context), not freeform text from raw PR content.
+              # Implementors must treat PR diff/content as untrusted data, not agent commands.
+              task_format: structured
+              output_file: /harness/review/task.json
+              review_output_file: /harness/review/review.json
+              working_directory: /harness
+              repo: <+inputs.repo>
+              pr_number: <+inputs.pullReq>
+
+        - name: coding_agent
+          run:
+            container:
+              image: <+inputs.codingAgentImage>
+            with:
+              detailed_logging: "true"
+              max_iterations: "50"
+              task_file_path: /harness/review/task.json
+              task_format: structured
+              treat_diff_as_data: "true"
+              working_directory: /harness
+            env:
+              ANTHROPIC_API_KEY: <+inputs.llmConnector.token>
+
+        - name: post_comments
+          run:
+            container:
+              image: <+inputs.commentImage>
+            with:
+              comments_file: /harness/review/review.json
+              repo: <+inputs.repo>
+              pr_number: <+inputs.pullReq>
+            env:
+              TOKEN: <+inputs.harnessKey>
+
+      platform:
+        os: linux
+        arch: <+inputs.arch>
+
+  inputs:
+    llmConnector:
+      type: connector
+      required: true
+      description: Anthropic-compatible LLM connector (token mapped to ANTHROPIC_API_KEY)
+    gitConnector:
+      type: connector
+      required: true
+      description: Git repository connector
+    harnessKey:
+      type: secret
+      default: account.harness_api_key
+      description: API key used to post PR review comments
+    repo:
+      type: string
+      required: true
+      description: Repository identifier (org/repo)
+    pullReq:
+      type: string
+      required: true
+      description: Pull request number to review
+    arch:
+      type: string
+      default: amd64
+      description: Pipeline platform architecture (amd64 or arm64)
+    reviewImage:
+      type: string
+      default: myregistry/ai-review:1.0.0
+      description: Container image for review prompt generation (replace with your registry)
+    codingAgentImage:
+      type: string
+      default: myregistry/coding-agent:1.0.0
+      description: Container image for the coding agent (replace with your registry)
+    commentImage:
+      type: string
+      default: myregistry/comment-plugin:1.0.0
+      description: Container image for posting PR comments (replace with your registry)

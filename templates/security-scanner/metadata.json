@@ -1,0 +1,5 @@
+{
+  "name": "Security Scanner",
+  "description": "AI-powered agent that scans code for security vulnerabilities and suggests fixes",
+  "version": "1.0.0"
+}
