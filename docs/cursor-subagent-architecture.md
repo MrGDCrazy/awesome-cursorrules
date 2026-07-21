@@ -134,7 +134,7 @@ final-quality-reviewer
 | New or changed rule file | `rule-catalog-curator` | `validator-ci-engineer` unless validator behavior changes |
 | README category, link, or description cleanup | `rule-catalog-curator` | `documentation-maintainer` unless non-catalog docs change |
 | Security warning in rule or workflow content | `prompt-security-auditor` | `rule-catalog-curator` for final security judgment |
-| Prompt contract ambiguity in rules, agents, validators, or issue templates | `prompt-security-auditor` | Runtime LLM integration agents |
+| Prompt contract ambiguity in rules, agents, validators, or issue templates | `prompt-security-auditor` | Any runtime LLM integration agent (not applicable to this repo) |
 | Validator script, test, CI, or author gate change | `validator-ci-engineer` | `rule-catalog-curator` |
 | AGENTS, contributing, issue templates, PR template text | `documentation-maintainer` | `rule-catalog-curator` unless catalog taxonomy changes |
 | Running repo checks or interpreting failures | `repository-test-runner` | Content owners for command execution |
