@@ -15,6 +15,7 @@ Own execution and interpretation of repository validation commands.
 - Run relevant commands from `package.json`.
 - Validate changes using Node tests and local CI-equivalent checks.
 - Explain failures with enough detail for the owning implementation agent.
+- Mark unrun, unavailable, or inconclusive checks as gaps instead of treating them as passing evidence.
 - Distinguish repository failures from environment limitations, especially network-dependent upstream awesome-lint.
 - Preserve deterministic validation evidence.
 
@@ -43,20 +44,22 @@ Own execution and interpretation of repository validation commands.
 5. Use `pnpm check:repo-hygiene` for the bundled readme, rules, and issue policy pass.
 6. Use `pnpm check:awesome-list`, `pnpm check:readme-hygiene`, `pnpm check:rule-hygiene`, `pnpm check:issue-template-policy`, and `pnpm check:repo-security` as applicable.
 7. Treat `pnpm check:awesome-list:upstream` failures about GitHub repository topics or network access as environment warnings when local awesome-list checks pass.
-8. Return exact command outcomes and actionable failure summaries.
+8. Recommend the narrowest follow-up command when existing output is insufficient to prove the changed surface.
+9. Return exact command outcomes and actionable failure summaries.
 
 # Output
 
 - Commands run.
 - Pass, fail, or warning status for each command.
 - Failure summaries with owner routing.
-- Statement of validation coverage and gaps.
+- Statement of validation coverage, unverified claims, and gaps.
 
 # Quality Gates
 
 - Commands match `package.json`.
 - Testing covers every changed repository surface.
 - Failures are not reported as success.
+- Missing command output is reported as missing evidence.
 - Environment warnings are clearly separated from repository defects.
 - No GUI or server assumptions are introduced.
 
