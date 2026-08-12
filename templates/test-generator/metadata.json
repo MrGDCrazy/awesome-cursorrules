@@ -1,0 +1,5 @@
+{
+  "name": "Test Generator",
+  "description": "AI-powered agent that generates unit tests to improve code coverage and opens a PR",
+  "version": "1.0.0"
+}

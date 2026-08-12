@@ -1,0 +1,151 @@
+version: 1
+pipeline:
+  clone:
+    depth: 1
+    ref:
+      name: <+inputs.branch>
+      type: branch
+    repo: <+inputs.repo>
+    connector: <+inputs.gitConnector>
+
+  stages:
+    - name: test-generator
+      steps:
+        - name: analyze_and_generate_tests
+          run:
+            container:
+              image: <+inputs.codingAgentImage>
+            with:
+              detailed_logging: "true"
+              max_iterations: "50"
+              working_directory: /harness
+              prompt: |
+                Analyze this codebase and generate unit tests to improve coverage:
+                - Identify untested or under-tested modules and public APIs
+                - Add unit tests that follow existing project conventions and frameworks
+                - Prefer focused, deterministic tests with clear arrange/act/assert structure
+                - Do not modify production code unless a tiny testability fix is required
+                - Keep changes limited to test files and necessary fixtures
+            env:
+              ANTHROPIC_API_KEY: <+inputs.llmConnector.token>
+
+        - name: show_changes
+          run:
+            shell: bash
+            script: |-
+              git add -A
+              if git diff --cached --quiet; then
+                echo "HAS_CHANGES=false" >> "$DRONE_OUTPUT"
+                echo "No test changes were generated; skipping PR creation."
+              else
+                echo "HAS_CHANGES=true" >> "$DRONE_OUTPUT"
+                git diff --cached
+              fi
+
+        - name: detect_scm_provider
+          run:
+            shell: bash
+            script: |-
+              SCM_PROVIDER=$(echo "${DRONE_REPO_SCM}" | tr '[:upper:]' '[:lower:]')
+              if [ -z "$SCM_PROVIDER" ]; then
+                echo "DRONE_REPO_SCM is unset; skipping PR creation."
+                echo "SCM_READY=false" >> $DRONE_OUTPUT
+                exit 0
+              fi
+              # Harness Code reports SCM as "Git"/"git"; normalize to harness for auth routing.
+              if [ "$SCM_PROVIDER" = "git" ] || [ "$SCM_PROVIDER" = "harness" ]; then
+                SCM_PROVIDER="harness"
+              fi
+
+              if [ "$SCM_PROVIDER" = "harness" ]; then
+                TOKEN="${HARNESS_API_KEY:-$SCM_TOKEN}"
+                NETRC_USERNAME="${DRONE_NETRC_USERNAME:-pat}"
+                NETRC_PASSWORD="${DRONE_NETRC_PASSWORD:-$TOKEN}"
+              else
+                # Prefer CI-provided netrc username; fall back to x-access-token for PAT HTTPS auth
+                # (GitHub/GitLab-style tokens expect a login or x-access-token, not the org/owner slug).
+                NETRC_USERNAME="${DRONE_NETRC_USERNAME:-x-access-token}"
+                TOKEN="${SCM_TOKEN}"
+                NETRC_PASSWORD="${SCM_TOKEN}"
+              fi
+
+              BASE_URL="${DRONE_SYSTEM_PROTO}://${DRONE_SYSTEM_HOST}"
+
+              if [ -z "$TOKEN" ] || [ -z "$NETRC_USERNAME" ]; then
+                echo "SCM credentials incomplete (token or netrc username missing); skipping PR creation."
+                echo "SCM_READY=false" >> $DRONE_OUTPUT
+                exit 0
+              fi
+
+              echo "SCM_PROVIDER=$SCM_PROVIDER" >> $DRONE_OUTPUT
+              echo "TOKEN=$TOKEN" >> $HARNESS_OUTPUT_SECRET_FILE
+              echo "NETRC_USERNAME=$NETRC_USERNAME" >> $DRONE_OUTPUT
+              echo "NETRC_PASSWORD=$NETRC_PASSWORD" >> $HARNESS_OUTPUT_SECRET_FILE
+              echo "BASE_URL=$BASE_URL" >> $DRONE_OUTPUT
+              echo "SCM_READY=true" >> $DRONE_OUTPUT
+            env:
+              HARNESS_API_KEY: <+inputs.harnessKey>
+              SCM_TOKEN: <+inputs.gitConnector.token>
+          if: <+pipeline.stages.test-generator.steps.show_changes.output.outputVariables.HAS_CHANGES> == "true"
+
+        - name: create_pr
+          run:
+            container:
+              image: <+inputs.createPrImage>
+            env:
+              PLUGIN_SCM_PROVIDER: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.SCM_PROVIDER>
+              PLUGIN_TOKEN: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.TOKEN>
+              PLUGIN_REPO: <+inputs.repo>
+              PLUGIN_SOURCE_BRANCH: <+inputs.branch>
+              PLUGIN_NETRC_MACHINE: <+env.DRONE_NETRC_MACHINE>
+              PLUGIN_NETRC_USERNAME: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.NETRC_USERNAME>
+              PLUGIN_NETRC_PASSWORD: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.NETRC_PASSWORD>
+              PLUGIN_BRANCH_SUFFIX: ai-tests
+              PLUGIN_COMMIT_MESSAGE: "test: AI-generated unit tests"
+              PLUGIN_PUSH_CHANGES: "true"
+              PLUGIN_CREATE_PR: "true"
+              PLUGIN_PR_TITLE: "AI: Generated Unit Tests"
+              PLUGIN_PR_DESCRIPTION: "Automated unit test generation to improve coverage. Please review before merging."
+              PLUGIN_HARNESS_ACCOUNT_ID: <+env.HARNESS_ACCOUNT_ID>
+              PLUGIN_HARNESS_ORG_ID: <+env.HARNESS_ORG_ID>
+              PLUGIN_HARNESS_PROJECT_ID: <+env.HARNESS_PROJECT_ID>
+              PLUGIN_HARNESS_BASE_URL: <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.BASE_URL>
+          if: <+pipeline.stages.test-generator.steps.show_changes.output.outputVariables.HAS_CHANGES> == "true" && <+pipeline.stages.test-generator.steps.detect_scm_provider.output.outputVariables.SCM_READY> == "true"
+
+      platform:
+        os: linux
+        arch: <+inputs.arch>
+
+  inputs:
+    llmConnector:
+      type: connector
+      required: true
+      description: Anthropic-compatible LLM connector (token mapped to ANTHROPIC_API_KEY)
+    gitConnector:
+      type: connector
+      required: true
+      description: Git connector for repository access
+    harnessKey:
+      type: secret
+      default: account.harness_api_key
+      description: API key used for Harness Code SCM operations
+    repo:
+      type: string
+      required: true
+      description: Repository identifier (org/repo)
+    branch:
+      type: string
+      default: main
+      description: Branch to analyze for missing tests
+    arch:
+      type: string
+      default: amd64
+      description: Pipeline platform architecture (amd64 or arm64)
+    codingAgentImage:
+      type: string
+      default: myregistry/coding-agent:1.0.0
+      description: Container image for the coding agent (replace with your registry)
+    createPrImage:
+      type: string
+      default: myregistry/create-pr-plugin:1.0.0
+      description: Container image for PR creation (replace with your registry)
