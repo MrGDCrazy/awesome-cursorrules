@@ -34,7 +34,7 @@ This repository is a curated awesome list for Cursor Project Rules. The primary 
 ### Documentation and standards
 
 - `README.md` is the public catalog.
-- `AGENTS.md` documents Cursor Cloud workflow.
+- `AGENTS.md` documents the orchestration contract and Cursor Cloud workflow.
 - `contributing.md` defines issue scope, author gates, and rule format.
 - `.github/pull_request_template.md` documents contribution quality expectations.
 
@@ -77,7 +77,6 @@ scripts/check-*.mjs -> scripts/check-repo-hygiene.mjs
 - Rule files outnumber README entries, so catalog drift is likely.
 - Some filenames appear legacy-truncated.
 - Several rules are near-duplicates across popular stacks.
-- `contributing.md` references missing `create-list.md`.
 - There is no single `check:all` script.
 - Upstream awesome-lint needs network access.
 
@@ -88,6 +87,8 @@ repository-architecture-steward
   -> rule-catalog-curator
   -> validator-ci-engineer
   -> documentation-maintainer
+  -> prompt-security-auditor
+  -> repository-test-runner
 
 rule-catalog-curator
   -> prompt-security-auditor
