@@ -1,0 +1,6 @@
+interface:
+  display_name: "Awesome Cursorrules"
+  short_description: "Repo-specific patterns and workflows for awesome-cursorrules"
+  default_prompt: "Use the awesome-cursorrules repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
